@@ -1,0 +1,2 @@
+;; Generated package description from truename-cache.el  -*- no-byte-compile: t; lexical-binding:t -*-
+(define-package "truename-cache" "0.3.5.0.20260228.183936" "Efficiently de-dup file-names" '((emacs "27.1") (compat "30.1")) :commit "356a11ff9fc0c37413779e3f7388ba1410225ea9" :authors '(("Martin Edström" . "meedstrom91@gmail.com")) :maintainer '("Martin Edström" . "meedstrom91@gmail.com") :keywords '("lisp") :url "https://github.com/meedstrom/truename-cache")
