@@ -6,7 +6,7 @@
 ;; URL:      https://github.com/meedstrom/truename-cache
 ;; Created:  2026-02-16
 ;; Keywords: lisp
-;; Package-Version: 0.3.5
+;; Package-Version: 0.3.7
 ;; Package-Requires: ((emacs "27.1") (compat "30.1"))
 
 ;; This program is free software: you can redistribute it and/or modify
@@ -388,6 +388,8 @@ of `file-name-handler-alist'."
 (defvar truename-cache--visited (make-hash-table :test 'equal))
 (defvar truename-cache--results nil)
 
+;; "If you have a procedure with ten parameters, you probably missed some."
+;; --- https://www.cs.yale.edu/homes/perlis-alan/quotes.html
 (cl-defun truename-cache-collect-files-and-attributes
     ( &rest args &key
       _side-effect
@@ -530,14 +532,14 @@ name handlers to allow, and t means allow all of them:
 ABBREV transforms each file name returned.
 It can take one of three values:
 
-- nil :: Return true names that work with `get-truename-buffer'.
+- nil :: Return true names.
 
 - `dir' :: Return non-true names more likely to match instances of
     variable `buffer-file-name' and to work with `get-file-buffer'.
     Corresponds to `truename-cache-get-dir-abbrev'.
 
 - `full' :: Return non-true names very likely to match instances of
-    variable `buffer-file-truename'.
+    variable `buffer-file-truename' and to work with `get-truename-buffer'.
     Corresponds to `truename-cache-get-full-abbrev'.
 
     This match is reliable except when the value of LOCAL-NAME-HANDLERS
@@ -557,20 +559,22 @@ Otherwise, they are quietly skipped."
            ;; pass specific subdirs that would otherwise be blocked by a
            ;; deny-regexp or by :resolve-symlinks nil.
            (filtered-true-recursive-roots
-            (delete-dups
-             (cl-loop
-              for dir in (seq-uniq dirs-recursive)
-              when (and (or (file-name-absolute-p dir)
-                            (error "Non-absolute name in DIRS-RECURSIVE: %s" dir))
-                        (or (not FULL-DIR-DENY-RE)
-                            (not (string-match-p FULL-DIR-DENY-RE dir))))
-              as true-dir = (file-name-as-directory (file-truename dir))
-              when (and (or (file-readable-p true-dir)
-                            (when assert-readable
-                              (error "Directory not readable: %s" dir)))
-                        (or (not FULL-DIR-DENY-RE)
-                            (not (string-match-p FULL-DIR-DENY-RE true-dir))))
-              collect true-dir)))
+            (seq-filter
+             (lambda (true-dir)
+               (and (if assert-readable
+                        (not (cl-assert (file-readable-p true-dir) nil
+                                        "Directory not readable: %s" true-dir))
+                      (file-readable-p true-dir))
+                    (not (and FULL-DIR-DENY-RE
+                              (string-match-p FULL-DIR-DENY-RE true-dir)))))
+             (delete-dups
+              (cl-loop
+               for dir in (seq-uniq dirs-recursive)
+               when (and (not (cl-assert (file-name-absolute-p dir) nil
+                                         "Non-absolute name in DIRS-RECURSIVE: %s" dir))
+                         (not (and FULL-DIR-DENY-RE
+                                   (string-match-p FULL-DIR-DENY-RE dir))))
+               collect (file-name-as-directory (file-truename dir))))))
            (test-roots (delete-dups (append filtered-true-recursive-roots
                                             dirs-recursive)))
            (inferred-dirs
@@ -595,24 +599,27 @@ Otherwise, they are quietly skipped."
                unless (cl-some (lambda (root) (string-prefix-p root dir))
                                test-roots)
                collect dir)))
+
            (all-flat-dirs
             (progn
               (dolist (dir dirs-flat)
                 (unless (file-name-absolute-p dir)
                   (error "Non-absolute name in DIRS-FLAT: %s" dir)))
-              (delete-dups
-               (cl-loop
-                for dir in (delete-dups (append dirs-flat inferred-dirs))
-                when (or (not FULL-DIR-DENY-RE)
-                         (not (string-match-p FULL-DIR-DENY-RE dir)))
-                as true-dir = (file-name-as-directory (file-truename dir))
-                when (and (or (file-readable-p true-dir)
-                              (if assert-readable
-                                  (error "Directory not readable: %s" dir)
-                                nil))
-                          (or (not FULL-DIR-DENY-RE)
-                              (not (string-match-p FULL-DIR-DENY-RE true-dir))))
-                collect true-dir)))))
+              (seq-filter
+               (lambda (true-dir)
+                 (and (if assert-readable
+                          (not (cl-assert (file-readable-p true-dir) nil
+                                         "Directory not readable: %s" true-dir))
+                        (file-readable-p true-dir))
+                      (not (and FULL-DIR-DENY-RE
+                                (string-match-p FULL-DIR-DENY-RE true-dir)))))
+               (delete-dups
+                (cl-loop
+                 for dir in (delete-dups (append dirs-flat inferred-dirs))
+                 when (not (and FULL-DIR-DENY-RE
+                                (string-match-p FULL-DIR-DENY-RE dir)))
+                 collect (file-name-as-directory (file-truename dir))))))))
+
       (clrhash truename-cache--visited)
       (setq truename-cache--results nil)
       (with-temp-buffer  ; No buffer-env

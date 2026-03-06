@@ -129,7 +129,7 @@ confusingly named buffer-local variable ‘buffer-file-truename’ - the
 actual truename will not.
 
    (Even _more_ confusingly, the function ‘get-truename-buffer’ needs
-the actual truename...)
+the actual truename...) EDIT: Sorry, I was wrong!
 
    But ‘abbreviate-file-name’ is another thing that can consume much of
 our aforementioned 100 millisecond budget, all by itself.
@@ -192,7 +192,7 @@ Node: Why?883
 Node: Bonus Merging lists2044
 Node: Bonus Filtering3161
 Node: Bonus Abbreviation4531
-Node: Appendix On referring to inodes instead of truenames6172
+Node: Appendix On referring to inodes instead of truenames6198
 
 End Tag Table
 
